@@ -10,7 +10,7 @@ mod maze;
 use maze::load_maze;
 
 mod player;
-use player::Player;
+use player::{process_events, Player};
 
 mod caster;
 use caster::{cast_ray, Intersect};
@@ -80,7 +80,7 @@ fn main() {
     window.update();
 
     framebuffer.set_background_color(0x333355);
-    let player = Player {
+    let mut player = Player {
         pos: Vec2::new(150.0, 150.0),
         angle: PI / 3.0,
     };
@@ -89,6 +89,8 @@ fn main() {
         if window.is_key_down(minifb::Key::Escape) {
             break;
         }
+
+        process_events(&window, &mut player);
 
         framebuffer.clear();
 
