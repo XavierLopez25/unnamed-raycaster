@@ -1,4 +1,4 @@
-pub struct FrameBuffer {
+pub struct Framebuffer {
     pub width: usize,
     pub height: usize,
     pub buffer: Vec<u32>,
@@ -6,9 +6,9 @@ pub struct FrameBuffer {
     current_color: u32,
 }
 
-impl FrameBuffer {
+impl Framebuffer {
     pub fn new(width: usize, height: usize) -> Self {
-        FrameBuffer {
+        Framebuffer {
             width,
             height,
             buffer: vec![0; width * height],
