@@ -15,6 +15,8 @@ use player::{process_events, Player};
 mod caster;
 use caster::{cast_ray, Intersect};
 
+use gilrs::Gilrs;
+
 fn cell_to_color(cell: char) -> u32 {
     match cell {
         '+' => 0xAA00AA,
@@ -76,6 +78,8 @@ fn main() {
     )
     .unwrap();
 
+    let mut gilrs = Gilrs::new().unwrap();
+
     window.set_position(100, 100);
     window.update();
 
@@ -90,7 +94,7 @@ fn main() {
             break;
         }
 
-        process_events(&window, &mut player);
+        process_events(&window, &mut player, &mut gilrs);
 
         framebuffer.clear();
 
