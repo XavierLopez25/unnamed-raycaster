@@ -1,6 +1,8 @@
 use minifb::{Key, Window, WindowOptions};
 use nalgebra_glm::Vec2;
+use once_cell::sync::Lazy;
 use std::f32::consts::PI;
+use std::sync::Arc;
 use std::time::Duration;
 
 mod framebuffer;
@@ -17,12 +19,30 @@ use caster::{cast_ray, Intersect};
 
 use gilrs::Gilrs;
 
+mod texture;
+use texture::Texture;
+
+static WALL1: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset1.png")));
+static WALL2: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset2.png")));
+static WALL3: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset10.png")));
+static WALL4: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset13.png")));
+
 fn cell_to_color(cell: char) -> u32 {
     match cell {
         '+' => 0xAA00AA,
         '-' => 0x991199,
         '|' => 0x881188,
         'g' => 0xFF0000,
+        _ => 0x000000,
+    }
+}
+
+fn cell_to_texture_color(cell: char, tx: u32, ty: u32) -> u32 {
+    match cell {
+        '+' => WALL4.get_pixel_color(tx, ty),
+        '-' => WALL3.get_pixel_color(tx, ty),
+        '|' => WALL2.get_pixel_color(tx, ty),
+        'g' => WALL1.get_pixel_color(tx, ty),
         _ => 0x000000,
     }
 }
@@ -76,18 +96,34 @@ fn render3d(
     let num_rays = framebuffer.width;
     let hh = framebuffer.height as f32 / 2.0;
 
+    for i in 0..framebuffer.width {
+        framebuffer.set_current_color(0x383838);
+
+        for j in 0..(framebuffer.height / 2) {
+            framebuffer.point(i, j);
+        }
+        framebuffer.set_current_color(0x717171);
+        for j in (framebuffer.height / 2)..framebuffer.height {
+            framebuffer.point(i, j);
+        }
+    }
+
     for i in 0..num_rays {
         let current_ray = i as f32 / num_rays as f32;
         let angle = player.angle - (player.fov / 2.0) + (player.fov * current_ray);
         let intersect = cast_ray(framebuffer, &maze, player, angle, block_size, false);
 
-        let stake_height = (framebuffer.height as f32 / intersect.distance) * 70.0;
+        let distance = intersect.distance * (angle - player.angle).cos();
+        let stake_height = (framebuffer.height as f32 / distance) * 70.0;
 
         let stake_top = (hh - (stake_height / 2.0)) as usize;
         let stake_bottom = (hh + (stake_height / 2.0)) as usize;
 
         for y in stake_top..stake_bottom {
-            let color = cell_to_color(intersect.impact);
+            let ty =
+                (y as f32 - stake_top as f32) / (stake_bottom as f32 - stake_top as f32) * 128.0;
+            let tx = intersect.tx;
+            let color = cell_to_texture_color(intersect.impact, tx as u32, ty as u32);
             framebuffer.set_current_color(color);
             framebuffer.point(i, y);
         }
