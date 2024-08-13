@@ -30,7 +30,7 @@ fn cell_to_color(cell: char) -> u32 {
 fn draw_cell(framebuffer: &mut Framebuffer, xo: usize, yo: usize, block_size: usize, cell: char) {
     for x in xo..xo + block_size {
         for y in yo..yo + block_size {
-            if (cell != ' ') {
+            if cell != ' ' {
                 let color = cell_to_color(cell);
                 framebuffer.set_current_color(color);
                 framebuffer.point(x, y);
@@ -39,10 +39,12 @@ fn draw_cell(framebuffer: &mut Framebuffer, xo: usize, yo: usize, block_size: us
     }
 }
 
-fn render2d(framebuffer: &mut Framebuffer, player: &Player) {
-    let maze = load_maze("maze.txt");
-    let block_size = 100;
-
+fn render2d(
+    framebuffer: &mut Framebuffer,
+    player: &Player,
+    maze: &Vec<Vec<char>>,
+    block_size: usize,
+) {
     for row in 0..maze.len() {
         for col in 0..maze[row].len() {
             draw_cell(
@@ -56,7 +58,40 @@ fn render2d(framebuffer: &mut Framebuffer, player: &Player) {
     }
     framebuffer.set_current_color(0x00FF00);
     framebuffer.point(player.pos.x as usize, player.pos.y as usize);
-    cast_ray(framebuffer, &maze, player, player.angle, block_size, true);
+
+    let num_rays = 100;
+    for i in 0..num_rays {
+        let current_ray = i as f32 / num_rays as f32;
+        let angle = player.angle - (player.fov / 2.0) + (player.fov * current_ray);
+        cast_ray(framebuffer, &maze, player, angle, block_size, true);
+    }
+}
+
+fn render3d(
+    framebuffer: &mut Framebuffer,
+    player: &Player,
+    maze: &Vec<Vec<char>>,
+    block_size: usize,
+) {
+    let num_rays = framebuffer.width;
+    let hh = framebuffer.height as f32 / 2.0;
+
+    for i in 0..num_rays {
+        let current_ray = i as f32 / num_rays as f32;
+        let angle = player.angle - (player.fov / 2.0) + (player.fov * current_ray);
+        let intersect = cast_ray(framebuffer, &maze, player, angle, block_size, false);
+
+        let stake_height = (framebuffer.height as f32 / intersect.distance) * 70.0;
+
+        let stake_top = (hh - (stake_height / 2.0)) as usize;
+        let stake_bottom = (hh + (stake_height / 2.0)) as usize;
+
+        for y in stake_top..stake_bottom {
+            let color = cell_to_color(intersect.impact);
+            framebuffer.set_current_color(color);
+            framebuffer.point(i, y);
+        }
+    }
 }
 
 fn main() {
@@ -80,6 +115,9 @@ fn main() {
 
     let mut gilrs = Gilrs::new().unwrap();
 
+    let maze = load_maze("maze.txt");
+    let block_size = 100;
+
     window.set_position(100, 100);
     window.update();
 
@@ -87,18 +125,34 @@ fn main() {
     let mut player = Player {
         pos: Vec2::new(150.0, 150.0),
         angle: PI / 3.0,
+        fov: PI / 3.0,
     };
+
+    let mut mode = "2D";
 
     while window.is_open() {
         if window.is_key_down(minifb::Key::Escape) {
             break;
         }
+        if window.is_key_down(Key::M) {
+            mode = if mode == "2D" { "3D" } else { "2D" };
+        }
 
-        process_events(&window, &mut player, &mut gilrs);
+        process_events(
+            &window,
+            &mut player,
+            &mut gilrs,
+            &maze::load_maze("maze.txt"),
+            100,
+        );
 
         framebuffer.clear();
 
-        render2d(&mut framebuffer, &player);
+        if mode == "2D" {
+            render2d(&mut framebuffer, &player, &maze, block_size);
+        } else {
+            render3d(&mut framebuffer, &player, &maze, block_size);
+        }
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer.width, framebuffer.height)
