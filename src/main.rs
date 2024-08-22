@@ -22,19 +22,19 @@ use gilrs::Gilrs;
 mod texture;
 use texture::Texture;
 
-static WALL1: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset1.png")));
+static WALL1: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset7.png")));
 static WALL2: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset2.png")));
 static WALL3: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset10.png")));
 static WALL4: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset13.png")));
+static SKY: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\sky.jpg")));
 static ENEMY: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\moai.png")));
 
 fn cell_to_color(cell: char) -> u32 {
     match cell {
-        '+' => 0xAA00AA,
-        '-' => 0x991199,
-        '|' => 0x881188,
+        '+' | '-' | '|' => 0x333333,
+        ' ' => 0xAAAAAA,
         'g' => 0xFF0000,
-        _ => 0x000000,
+        _ => 0xAAAAAA,
     }
 }
 
@@ -173,10 +173,15 @@ fn render3d(
     let num_rays = framebuffer.width;
     let hh = framebuffer.height as f32 / 2.0;
 
-    for i in 0..framebuffer.width {
-        framebuffer.set_current_color(0x383838);
+    let texture_upper = &*SKY;
 
+    for i in 0..framebuffer.width {
         for j in 0..(framebuffer.height / 2) {
+            // Map screen coordinates (i, j) to texture coordinates
+            let tx = (i % texture_upper.width as usize) as u32;
+            let ty = (j % texture_upper.height as usize) as u32;
+            let color = texture_upper.get_pixel_color(tx, ty);
+            framebuffer.set_current_color(color);
             framebuffer.point(i, j);
         }
         framebuffer.set_current_color(0x717171);
@@ -264,6 +269,52 @@ fn draw_pixel(framebuffer: &mut Framebuffer, x: usize, y: usize, scale: usize) {
     }
 }
 
+fn draw_minimap(
+    framebuffer: &mut Framebuffer,
+    player: &Player,
+    maze: &Vec<Vec<char>>,
+    minimap_scale: usize,
+    minimap_x: usize,
+    minimap_y: usize,
+    block_size: usize,
+) {
+    // Dibujar el laberinto
+    for (y, row) in maze.iter().enumerate() {
+        for (x, &cell) in row.iter().enumerate() {
+            let color = match cell {
+                '+' | '-' | '|' => 0x333333,
+                ' ' => 0xAAAAAA,
+                'g' => 0xFF0000,
+                _ => 0xAAAAAA,
+            };
+            for dy in 0..minimap_scale {
+                for dx in 0..minimap_scale {
+                    framebuffer.set_current_color(color);
+                    framebuffer.point(
+                        minimap_x + x * minimap_scale + dx,
+                        minimap_y + y * minimap_scale + dy,
+                    );
+                }
+            }
+        }
+    }
+
+    // Dibujar al jugador
+    // Corregir la posición del jugador para que coincida más exactamente con `render2d`
+    let player_x = (player.pos.x as usize * minimap_scale / block_size) + minimap_x;
+    let player_y = (player.pos.y as usize * minimap_scale / block_size) + minimap_y;
+    let player_size = 6; // Aumentar el tamaño del marcador del jugador para visibilidad
+    framebuffer.set_current_color(0xFF0000);
+    for dx in 0..player_size {
+        for dy in 0..player_size {
+            framebuffer.point(
+                player_x + dx - player_size / 2,
+                player_y + dy - player_size / 2,
+            );
+        }
+    }
+}
+
 fn main() {
     let window_width = 1300;
     let window_height = 900;
@@ -299,7 +350,7 @@ fn main() {
         .get_mouse_pos(MouseMode::Pass)
         .map_or(0.0, |(x, _)| x as f32);
 
-    framebuffer.set_background_color(0x333355);
+    framebuffer.set_background_color(0xAAAAAA);
     let mut player = Player {
         pos: Vec2::new(150.0, 150.0),
         angle: PI / 3.0,
@@ -339,11 +390,23 @@ fn main() {
 
         let mut zbuffer = vec![f32::INFINITY; framebuffer_width * framebuffer_height];
 
+        let minimap_x = framebuffer.width - 300;
+        let minimap_y = framebuffer.height - 200;
+
         if mode == "2D" {
             render2d(&mut framebuffer, &player, &maze, block_size);
         } else {
             render3d(&mut framebuffer, &player, &maze, block_size, &mut zbuffer);
             render_enemies(&mut framebuffer, &player, &mut zbuffer);
+            draw_minimap(
+                &mut framebuffer,
+                &player,
+                &maze,
+                20,
+                minimap_x,
+                minimap_y,
+                block_size,
+            );
         }
 
         let x_position = framebuffer.width - 225;
