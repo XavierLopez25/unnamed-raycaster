@@ -1,10 +1,9 @@
-use image::codecs::qoi;
 use minifb::{Key, MouseMode, Window, WindowOptions};
 use nalgebra_glm::Vec2;
 use once_cell::sync::Lazy;
 use std::f32::consts::PI;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 mod framebuffer;
 use framebuffer::Framebuffer;
@@ -96,10 +95,8 @@ fn render_enemy(framebuffer: &mut Framebuffer, player: &Player, pos: &Vec2, zbuf
     let screen_height = framebuffer.height as f32;
     let screen_width = framebuffer.width as f32;
 
-    // Calcular el tamaño del sprite basado en la distancia y un factor de escala.
     let sprite_size = (screen_height / sprite_distance) * 70.0;
 
-    // Ajustar la posición inicial basada en el ángulo relativo del sprite y el ángulo del jugador.
     let relative_angle = sprite_angle - player.angle;
     let start_x = ((relative_angle).tan() * (screen_width / 2.0) / (player.fov / 2.0))
         + (screen_width / 2.0)
@@ -155,7 +152,7 @@ fn color_distance(color1: u32, color2: u32) -> u32 {
     let g_diff = (g1 as i32 - g2 as i32).abs() as u32;
     let b_diff = (b1 as i32 - b2 as i32).abs() as u32;
 
-    r_diff + g_diff + b_diff // Suma simple de diferencias absolutas
+    r_diff + g_diff + b_diff
 }
 
 fn render_enemies(framebuffer: &mut Framebuffer, player: &Player, zbuffer: &mut [f32]) {
@@ -201,7 +198,7 @@ fn render3d(
 
         for y in stake_top..stake_bottom {
             if y >= framebuffer.height {
-                continue; // Asegúrate de que y no exceda la altura del framebuffer
+                continue;
             }
             let ty =
                 (y as f32 - stake_top as f32) / (stake_bottom as f32 - stake_top as f32) * 128.0;
@@ -209,7 +206,7 @@ fn render3d(
             let color = cell_to_texture_color(intersect.impact, tx as u32, ty as u32);
             let buffer_index = y * framebuffer.width + i;
             if buffer_index >= zbuffer.len() {
-                continue; // Asegúrate de que el índice no exceda el tamaño del zbuffer
+                continue;
             }
             if distance < zbuffer[buffer_index] {
                 framebuffer.set_current_color(color);
@@ -220,12 +217,63 @@ fn render3d(
     }
 }
 
+const SCALE: usize = 5;
+
+fn draw_text(framebuffer: &mut Framebuffer, text: &str, x: usize, y: usize) {
+    let mut cursor_x = x;
+
+    for ch in text.chars() {
+        draw_char(framebuffer, ch, cursor_x, y);
+        cursor_x += 4 * SCALE + 10;
+    }
+}
+
+fn draw_char(framebuffer: &mut Framebuffer, ch: char, x: usize, y: usize) {
+    let bitmap = match ch {
+        '0' => [0x7E, 0x99, 0x91, 0x89, 0x7E],
+        '1' => [0x00, 0x00, 0xFF, 0x00, 0x00],
+        '2' => [0xE2, 0x91, 0x91, 0x91, 0x8E],
+        '3' => [0x42, 0x81, 0x89, 0x89, 0x76],
+        '4' => [0x18, 0x14, 0x92, 0xFF, 0x90],
+        '5' => [0x4F, 0x89, 0x89, 0x89, 0x71],
+        '6' => [0x7E, 0x89, 0x89, 0x89, 0x72],
+        '7' => [0x01, 0xE1, 0x11, 0x09, 0x07],
+        '8' => [0x76, 0x89, 0x89, 0x89, 0x76],
+        '9' => [0x4E, 0x91, 0x91, 0x91, 0x7E],
+        'F' => [0xFF, 0x09, 0x09, 0x01, 0x00],
+        'P' => [0xFF, 0x11, 0x11, 0x11, 0x0E],
+        'S' => [0x8E, 0x91, 0x91, 0x91, 0x62],
+        _ => [0x00, 0x00, 0x00, 0x00, 0x00],
+    };
+
+    for (i, &byte) in bitmap.iter().enumerate() {
+        for bit in 0..8 {
+            if byte & (1 << bit) != 0 {
+                draw_pixel(framebuffer, x + i * SCALE, y + bit * SCALE, SCALE);
+            }
+        }
+    }
+}
+
+fn draw_pixel(framebuffer: &mut Framebuffer, x: usize, y: usize, scale: usize) {
+    for dx in 0..scale {
+        for dy in 0..scale {
+            framebuffer.set_current_color(0xFFFFFF);
+            framebuffer.point(x + dx, y + dy);
+        }
+    }
+}
+
 fn main() {
     let window_width = 1300;
     let window_height = 900;
 
     let framebuffer_width = 1300;
     let framebuffer_height = 900;
+
+    let mut last_frame_time = Instant::now();
+    let mut frame_count = 0;
+    let mut fps = 0;
 
     let frame_delay = Duration::from_millis(0);
 
@@ -262,6 +310,16 @@ fn main() {
     let mut mode = "3D";
 
     while window.is_open() {
+        let current_time = Instant::now();
+        frame_count += 1;
+
+        if current_time.duration_since(last_frame_time) >= Duration::from_secs(1) {
+            fps = frame_count;
+            frame_count = 0;
+            last_frame_time = current_time;
+            println!("FPS: {}", fps);
+        }
+
         if window.is_key_down(minifb::Key::Escape) {
             break;
         }
@@ -287,6 +345,9 @@ fn main() {
             render3d(&mut framebuffer, &player, &maze, block_size, &mut zbuffer);
             render_enemies(&mut framebuffer, &player, &mut zbuffer);
         }
+
+        let x_position = framebuffer.width - 225;
+        draw_text(&mut framebuffer, &format!("FPS {}", fps), x_position, 10);
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer.width, framebuffer.height)

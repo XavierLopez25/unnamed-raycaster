@@ -93,9 +93,9 @@ pub fn process_events(
     }
 
     if let Some((mouse_x, _)) = window.get_mouse_pos(MouseMode::Pass) {
-        let delta_x = mouse_x as f32 - player.last_mouse_x; // Diferencia desde la última posición
-        player.angle += delta_x * ROTATION_SPEED_MOUSE; // Ajustar el ángulo basado en el movimiento del mouse
-        player.last_mouse_x = mouse_x as f32; // Actualizar la última posición X del mouse
+        let delta_x = mouse_x as f32 - player.last_mouse_x;
+        player.angle += delta_x * ROTATION_SPEED_MOUSE;
+        player.last_mouse_x = mouse_x as f32;
     }
 
     while let Some(event) = gilrs.next_event() {
