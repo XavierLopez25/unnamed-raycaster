@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cpal = "0.15.3"
 gilrs = "0.10.9"
 image = "0.25.2"
+lazy_static = "1.5.0"
 minifb = "0.27.0"
 nalgebra-glm = "0.19.0"
 once_cell = "1.19.0"
+rodio = "0.19.0"
