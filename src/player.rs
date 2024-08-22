@@ -1,5 +1,5 @@
 use gilrs::{Axis, Button, EventType, Gilrs};
-use minifb::{Key, Window};
+use minifb::{Key, MouseMode, Window, WindowOptions};
 use nalgebra_glm::{length, rotate_vec2, Vec2};
 use std::f32::consts::PI;
 
@@ -9,6 +9,7 @@ pub struct Player {
     pub pos: Vec2,
     pub angle: f32,
     pub fov: f32,
+    pub last_mouse_x: f32,
 }
 
 pub fn process_events(
@@ -23,6 +24,7 @@ pub fn process_events(
     const DEAD_ZONE: f32 = 0.5;
     const MOVE_SPEED_CONTROLLER: f32 = 6.0;
     const ROTATION_SPEED_CONTROLLER: f32 = PI / 50.0;
+    const ROTATION_SPEED_MOUSE: f32 = PI / 75.0;
 
     let forward = Vec2::new(player.angle.cos(), player.angle.sin());
 
@@ -88,6 +90,12 @@ pub fn process_events(
         ) {
             player.pos = new_pos;
         }
+    }
+
+    if let Some((mouse_x, _)) = window.get_mouse_pos(MouseMode::Pass) {
+        let delta_x = mouse_x as f32 - player.last_mouse_x; // Diferencia desde la última posición
+        player.angle += delta_x * ROTATION_SPEED_MOUSE; // Ajustar el ángulo basado en el movimiento del mouse
+        player.last_mouse_x = mouse_x as f32; // Actualizar la última posición X del mouse
     }
 
     while let Some(event) = gilrs.next_event() {

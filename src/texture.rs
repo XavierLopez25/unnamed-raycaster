@@ -39,6 +39,9 @@ impl Texture {
     }
 
     pub fn get_pixel_color(&self, x: u32, y: u32) -> u32 {
+        if x >= self.width || y >= self.height {
+            return 0xFF0000;
+        }
         self.color_array[x as usize][y as usize]
     }
 }
