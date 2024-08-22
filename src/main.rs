@@ -1,7 +1,11 @@
 use minifb::{Key, MouseMode, Window, WindowOptions};
 use nalgebra_glm::Vec2;
 use once_cell::sync::Lazy;
+use rodio::Source;
+use rodio::{OutputStream, Sink};
 use std::f32::consts::PI;
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -21,6 +25,8 @@ use gilrs::Gilrs;
 
 mod texture;
 use texture::Texture;
+
+mod sfx;
 
 static WALL1: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset7.png")));
 static WALL2: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset2.png")));
@@ -330,6 +336,15 @@ fn main() {
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
 
+    let (stream, stream_handle) =
+        OutputStream::try_default().expect("Failed to get default output stream");
+
+    let mut background_music_sink = Sink::try_new(&stream_handle).expect("Failed to create a sink");
+    let file = File::open("assets\\bg_music.mp3").expect("Failed to open music file");
+    let source = rodio::Decoder::new(BufReader::new(file)).expect("Failed to decode music file");
+    background_music_sink.append(source.repeat_infinite());
+    background_music_sink.set_volume(0.3);
+
     let mut window = Window::new(
         "unnamed-raycaster",
         window_width,
@@ -384,6 +399,7 @@ fn main() {
             &mut gilrs,
             &maze::load_maze("maze.txt"),
             100,
+            &stream_handle,
         );
 
         framebuffer.clear();

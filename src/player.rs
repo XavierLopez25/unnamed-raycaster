@@ -1,3 +1,4 @@
+use crate::sfx;
 use gilrs::{Axis, Button, EventType, Gilrs};
 use minifb::{Key, MouseMode, Window, WindowOptions};
 use nalgebra_glm::{length, rotate_vec2, Vec2};
@@ -12,13 +13,21 @@ pub struct Player {
     pub last_mouse_x: f32,
 }
 
+static mut TOTAL_DISTANCE: f32 = 0.0;
+const DISTANCE_THRESHOLD: f32 = 30.0;
+
 pub fn process_events(
     window: &Window,
     player: &mut Player,
     gilrs: &mut Gilrs,
     maze: &Vec<Vec<char>>,
     block_size: usize,
+    stream_handle: &rodio::OutputStreamHandle,
 ) {
+    let forward = Vec2::new(player.angle.cos(), player.angle.sin());
+    let mut moved = false;
+    let old_pos = player.pos.clone();
+
     const MOVE_SPEED_KEYBOARD: f32 = 10.0;
     const ROTATION_SPEED_KEYBOARD: f32 = PI / 25.0;
     const DEAD_ZONE: f32 = 0.5;
@@ -45,6 +54,7 @@ pub fn process_events(
             new_pos.y as usize / block_size,
         ) {
             player.pos = new_pos;
+            moved = true;
         }
     }
 
@@ -57,6 +67,7 @@ pub fn process_events(
             new_pos.y as usize / block_size,
         ) {
             player.pos = new_pos;
+            moved = true;
         }
     }
 
@@ -77,6 +88,7 @@ pub fn process_events(
             new_pos.y as usize / block_size,
         ) {
             player.pos = new_pos;
+            moved = true;
         }
     }
 
@@ -89,6 +101,7 @@ pub fn process_events(
             new_pos.y as usize / block_size,
         ) {
             player.pos = new_pos;
+            moved = true;
         }
     }
 
@@ -112,6 +125,7 @@ pub fn process_events(
                         new_pos.y as usize / block_size,
                     ) {
                         player.pos = new_pos;
+                        moved = true;
                     }
                 }
                 Button::DPadDown => {
@@ -123,6 +137,7 @@ pub fn process_events(
                         new_pos.y as usize / block_size,
                     ) {
                         player.pos = new_pos;
+                        moved = true;
                     }
                 }
                 _ => {}
@@ -142,10 +157,24 @@ pub fn process_events(
                         new_pos.y as usize / block_size,
                     ) {
                         player.pos = new_pos;
+                        moved = true;
                     }
                 }
             }
             _ => {}
+        }
+    }
+
+    if moved {
+        let distance = nalgebra_glm::distance(&old_pos, &player.pos);
+        unsafe {
+            TOTAL_DISTANCE += distance;
+            if TOTAL_DISTANCE >= DISTANCE_THRESHOLD {
+                // Reproducir sonido de pisadas
+                if let Ok(_) = sfx::play_footstep_sound(stream_handle) {
+                    TOTAL_DISTANCE = 0.0;
+                }
+            }
         }
     }
 }
