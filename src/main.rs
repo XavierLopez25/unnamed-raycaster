@@ -251,9 +251,26 @@ fn draw_char(framebuffer: &mut Framebuffer, ch: char, x: usize, y: usize) {
         '7' => [0x01, 0xE1, 0x11, 0x09, 0x07],
         '8' => [0x76, 0x89, 0x89, 0x89, 0x76],
         '9' => [0x4E, 0x91, 0x91, 0x91, 0x7E],
+        'A' => [0x7E, 0x11, 0x11, 0x11, 0x7E],
+        'C' => [0x7E, 0x81, 0x81, 0x81, 0x42],
+        'D' => [0xFF, 0x81, 0x81, 0x42, 0x3C],
+        'E' => [0xFF, 0x91, 0x91, 0x91, 0x81],
         'F' => [0xFF, 0x09, 0x09, 0x01, 0x00],
+        'N' => [0xFF, 0x10, 0x20, 0x40, 0xFF],
         'P' => [0xFF, 0x11, 0x11, 0x11, 0x0E],
+        'R' => [0xFF, 0x19, 0x29, 0x49, 0x86],
         'S' => [0x8E, 0x91, 0x91, 0x91, 0x62],
+        'T' => [0x01, 0x01, 0xFF, 0x01, 0x01],
+        'U' => [0x7F, 0x80, 0x80, 0x80, 0x7F],
+        'W' => [0xFF, 0x40, 0x20, 0x40, 0xFF],
+        'M' => [0xFF, 0x02, 0x04, 0x02, 0xFF],
+        'O' => [0x7E, 0x81, 0x81, 0x81, 0x7E],
+        'Y' => [0x07, 0x08, 0xF0, 0x08, 0x07],
+        'L' => [0xFF, 0x80, 0x80, 0x80, 0x80],
+        '!' => [0x00, 0x00, 0xCF, 0x00, 0x00],
+        '-' => [0x08, 0x08, 0x08, 0x08, 0x08],
+        '\'' => [0x00, 0x07, 0x00, 0x00, 0x00],
+        ' ' => [0x00, 0x00, 0x00, 0x00, 0x00],
         _ => [0x00, 0x00, 0x00, 0x00, 0x00],
     };
 
@@ -305,11 +322,9 @@ fn draw_minimap(
         }
     }
 
-    // Dibujar al jugador
-    // Corregir la posición del jugador para que coincida más exactamente con `render2d`
     let player_x = (player.pos.x as usize * minimap_scale / block_size) + minimap_x;
     let player_y = (player.pos.y as usize * minimap_scale / block_size) + minimap_y;
-    let player_size = 6; // Aumentar el tamaño del marcador del jugador para visibilidad
+    let player_size = 6;
     framebuffer.set_current_color(0xFF0000);
     for dx in 0..player_size {
         for dy in 0..player_size {
@@ -328,10 +343,6 @@ fn main() {
     let framebuffer_width = 1300;
     let framebuffer_height = 900;
 
-    let mut last_frame_time = Instant::now();
-    let mut frame_count = 0;
-    let mut fps = 0;
-
     let frame_delay = Duration::from_millis(0);
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
@@ -340,18 +351,18 @@ fn main() {
         OutputStream::try_default().expect("Failed to get default output stream");
 
     let mut background_music_sink = Sink::try_new(&stream_handle).expect("Failed to create a sink");
-    let file = File::open("assets\\bg_music.mp3").expect("Failed to open music file");
+    let file = File::open("assets/bg_music.mp3").expect("Failed to open music file");
     let source = rodio::Decoder::new(BufReader::new(file)).expect("Failed to decode music file");
     background_music_sink.append(source.repeat_infinite());
     background_music_sink.set_volume(0.3);
 
     let mut window = Window::new(
-        "unnamed-raycaster",
+        "Unnamed Raycaster - Press 'S' to Start",
         window_width,
         window_height,
         WindowOptions::default(),
     )
-    .unwrap();
+    .expect("Failed to create window");
 
     let mut gilrs = Gilrs::new().unwrap();
 
@@ -359,13 +370,13 @@ fn main() {
     let block_size = 100;
 
     window.set_position(100, 100);
-    window.update();
 
     let initial_mouse_x = window
         .get_mouse_pos(MouseMode::Pass)
         .map_or(0.0, |(x, _)| x as f32);
 
     framebuffer.set_background_color(0xAAAAAA);
+
     let mut player = Player {
         pos: Vec2::new(150.0, 150.0),
         angle: PI / 3.0,
@@ -374,36 +385,35 @@ fn main() {
     };
 
     let mut mode = "3D";
+    let mut in_start_screen = true;
 
+    // Start screen loop
+    while window.is_open() && in_start_screen {
+        framebuffer.clear();
+        draw_text(&mut framebuffer, "WELCOME TO UNNAMED RAYCASTER!", 225, 400);
+        draw_text(&mut framebuffer, "PRESS 'S' TO START!", 375, 460);
+        window
+            .update_with_buffer(&framebuffer.buffer, framebuffer.width, framebuffer.height)
+            .expect("Failed to update window");
+
+        if window.is_key_down(Key::S) {
+            in_start_screen = false;
+        }
+    }
+
+    // Game loop
     while window.is_open() {
         let current_time = Instant::now();
-        frame_count += 1;
-
-        if current_time.duration_since(last_frame_time) >= Duration::from_secs(1) {
-            fps = frame_count;
-            frame_count = 0;
-            last_frame_time = current_time;
-            println!("FPS: {}", fps);
-        }
-
-        if window.is_key_down(minifb::Key::Escape) {
-            break;
-        }
-        if window.is_key_down(Key::M) {
-            mode = if mode == "2D" { "3D" } else { "2D" };
-        }
-
         process_events(
             &window,
             &mut player,
             &mut gilrs,
-            &maze::load_maze("maze.txt"),
-            100,
+            &maze,
+            block_size,
             &stream_handle,
         );
 
         framebuffer.clear();
-
         let mut zbuffer = vec![f32::INFINITY; framebuffer_width * framebuffer_height];
 
         let minimap_x = framebuffer.width - 300;
@@ -425,13 +435,29 @@ fn main() {
             );
         }
 
-        let x_position = framebuffer.width - 225;
-        draw_text(&mut framebuffer, &format!("FPS {}", fps), x_position, 10);
-
+        let fps = calculate_fps(current_time);
+        let text_x = framebuffer.width - 250;
+        draw_text(&mut framebuffer, &format!("FPS: {}", fps), text_x, 20);
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer.width, framebuffer.height)
-            .unwrap();
+            .expect("Failed to update window");
+
+        if window.is_key_down(Key::Escape) {
+            break;
+        }
+        if window.is_key_down(Key::M) {
+            mode = if mode == "2D" { "3D" } else { "2D" };
+        }
 
         std::thread::sleep(frame_delay);
+    }
+}
+
+fn calculate_fps(start_time: Instant) -> u32 {
+    let elapsed = start_time.elapsed();
+    if elapsed.as_secs_f32() == 0.0 {
+        0
+    } else {
+        (1.0 / elapsed.as_secs_f32()) as u32
     }
 }
