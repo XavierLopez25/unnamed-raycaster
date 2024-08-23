@@ -1,10 +1,10 @@
-use crate::sfx;
+use crate::{sfx, trigger_win_condition};
 use gilrs::{Axis, Button, EventType, Gilrs};
 use minifb::{Key, MouseMode, Window, WindowOptions};
 use nalgebra_glm::{length, rotate_vec2, Vec2};
 use std::f32::consts::PI;
 
-use crate::maze::is_blocked;
+use crate::maze::{is_blocked, is_goal};
 
 pub struct Player {
     pub pos: Vec2,
@@ -56,6 +56,13 @@ pub fn process_events(
             player.pos = new_pos;
             moved = true;
         }
+        if is_goal(
+            maze,
+            new_pos.x as usize / block_size,
+            new_pos.y as usize / block_size,
+        ) {
+            trigger_win_condition();
+        }
     }
 
     if window.is_key_down(Key::S) {
@@ -68,6 +75,13 @@ pub fn process_events(
         ) {
             player.pos = new_pos;
             moved = true;
+        }
+        if is_goal(
+            maze,
+            new_pos.x as usize / block_size,
+            new_pos.y as usize / block_size,
+        ) {
+            trigger_win_condition();
         }
     }
 
@@ -90,6 +104,13 @@ pub fn process_events(
             player.pos = new_pos;
             moved = true;
         }
+        if is_goal(
+            maze,
+            new_pos.x as usize / block_size,
+            new_pos.y as usize / block_size,
+        ) {
+            trigger_win_condition();
+        }
     }
 
     if window.is_key_down(Key::Down) {
@@ -102,6 +123,13 @@ pub fn process_events(
         ) {
             player.pos = new_pos;
             moved = true;
+        }
+        if is_goal(
+            maze,
+            new_pos.x as usize / block_size,
+            new_pos.y as usize / block_size,
+        ) {
+            trigger_win_condition();
         }
     }
 
@@ -127,6 +155,13 @@ pub fn process_events(
                         player.pos = new_pos;
                         moved = true;
                     }
+                    if is_goal(
+                        maze,
+                        new_pos.x as usize / block_size,
+                        new_pos.y as usize / block_size,
+                    ) {
+                        trigger_win_condition();
+                    }
                 }
                 Button::DPadDown => {
                     let move_vec = forward * -MOVE_SPEED_CONTROLLER;
@@ -138,6 +173,13 @@ pub fn process_events(
                     ) {
                         player.pos = new_pos;
                         moved = true;
+                    }
+                    if is_goal(
+                        maze,
+                        new_pos.x as usize / block_size,
+                        new_pos.y as usize / block_size,
+                    ) {
+                        trigger_win_condition();
                     }
                 }
                 _ => {}
@@ -159,6 +201,13 @@ pub fn process_events(
                         player.pos = new_pos;
                         moved = true;
                     }
+                    if is_goal(
+                        maze,
+                        new_pos.x as usize / block_size,
+                        new_pos.y as usize / block_size,
+                    ) {
+                        trigger_win_condition();
+                    }
                 }
             }
             _ => {}
@@ -170,7 +219,6 @@ pub fn process_events(
         unsafe {
             TOTAL_DISTANCE += distance;
             if TOTAL_DISTANCE >= DISTANCE_THRESHOLD {
-                // Reproducir sonido de pisadas
                 if let Ok(_) = sfx::play_footstep_sound(stream_handle) {
                     TOTAL_DISTANCE = 0.0;
                 }

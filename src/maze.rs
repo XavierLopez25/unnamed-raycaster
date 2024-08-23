@@ -17,3 +17,10 @@ pub fn is_blocked(maze: &Vec<Vec<char>>, x: usize, y: usize) -> bool {
     }
     maze[y][x] != ' '
 }
+
+pub fn is_goal(maze: &Vec<Vec<char>>, x: usize, y: usize) -> bool {
+    if y < maze.len() && x < maze[y].len() {
+        return maze[y][x] == 'g';
+    }
+    false
+}

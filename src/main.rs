@@ -1,4 +1,4 @@
-use minifb::{Key, MouseMode, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, MouseMode, Window, WindowOptions};
 use nalgebra_glm::Vec2;
 use once_cell::sync::Lazy;
 use rodio::Source;
@@ -19,7 +19,7 @@ mod player;
 use player::{process_events, Player};
 
 mod caster;
-use caster::{cast_ray, Intersect};
+use caster::cast_ray;
 
 use gilrs::Gilrs;
 
@@ -34,6 +34,13 @@ static WALL3: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\a
 static WALL4: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\asset13.png")));
 static SKY: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\sky.jpg")));
 static ENEMY: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("assets\\moai.png")));
+static mut GAME_WON: bool = false;
+
+pub fn trigger_win_condition() {
+    unsafe {
+        GAME_WON = true;
+    }
+}
 
 fn cell_to_color(cell: char) -> u32 {
     match cell {
@@ -162,7 +169,13 @@ fn color_distance(color1: u32, color2: u32) -> u32 {
 }
 
 fn render_enemies(framebuffer: &mut Framebuffer, player: &Player, zbuffer: &mut [f32]) {
-    let enemies = vec![Vec2::new(150.0, 400.0)];
+    let enemies = vec![
+        Vec2::new(150.0, 400.0),
+        Vec2::new(1151.0, 692.0),
+        Vec2::new(174.0, 754.0),
+        Vec2::new(541.0, 592.0),
+        Vec2::new(1151.0, 149.0),
+    ];
 
     for enemy in &enemies {
         render_enemy(framebuffer, &player, enemy, zbuffer)
@@ -183,7 +196,6 @@ fn render3d(
 
     for i in 0..framebuffer.width {
         for j in 0..(framebuffer.height / 2) {
-            // Map screen coordinates (i, j) to texture coordinates
             let tx = (i % texture_upper.width as usize) as u32;
             let ty = (j % texture_upper.height as usize) as u32;
             let color = texture_upper.get_pixel_color(tx, ty);
@@ -301,7 +313,6 @@ fn draw_minimap(
     minimap_y: usize,
     block_size: usize,
 ) {
-    // Dibujar el laberinto
     for (y, row) in maze.iter().enumerate() {
         for (x, &cell) in row.iter().enumerate() {
             let color = match cell {
@@ -343,7 +354,7 @@ fn main() {
     let framebuffer_width = 1300;
     let framebuffer_height = 900;
 
-    let frame_delay = Duration::from_millis(0);
+    let frame_delay = Duration::from_millis(16);
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
 
@@ -387,7 +398,6 @@ fn main() {
     let mut mode = "3D";
     let mut in_start_screen = true;
 
-    // Start screen loop
     while window.is_open() && in_start_screen {
         framebuffer.clear();
         draw_text(&mut framebuffer, "WELCOME TO UNNAMED RAYCASTER!", 225, 400);
@@ -401,17 +411,19 @@ fn main() {
         }
     }
 
-    // Game loop
     while window.is_open() {
         let current_time = Instant::now();
-        process_events(
-            &window,
-            &mut player,
-            &mut gilrs,
-            &maze,
-            block_size,
-            &stream_handle,
-        );
+
+        if !unsafe { GAME_WON } {
+            process_events(
+                &window,
+                &mut player,
+                &mut gilrs,
+                &maze,
+                block_size,
+                &stream_handle,
+            );
+        }
 
         framebuffer.clear();
         let mut zbuffer = vec![f32::INFINITY; framebuffer_width * framebuffer_height];
@@ -419,32 +431,40 @@ fn main() {
         let minimap_x = framebuffer.width - 300;
         let minimap_y = framebuffer.height - 200;
 
-        if mode == "2D" {
-            render2d(&mut framebuffer, &player, &maze, block_size);
+        if unsafe { GAME_WON } {
+            draw_text(&mut framebuffer, "YOU WON!", 500, 475);
         } else {
-            render3d(&mut framebuffer, &player, &maze, block_size, &mut zbuffer);
-            render_enemies(&mut framebuffer, &player, &mut zbuffer);
-            draw_minimap(
-                &mut framebuffer,
-                &player,
-                &maze,
-                20,
-                minimap_x,
-                minimap_y,
-                block_size,
-            );
+            if mode == "2D" {
+                render2d(&mut framebuffer, &player, &maze, block_size);
+            } else {
+                render3d(&mut framebuffer, &player, &maze, block_size, &mut zbuffer);
+                render_enemies(&mut framebuffer, &player, &mut zbuffer);
+                draw_minimap(
+                    &mut framebuffer,
+                    &player,
+                    &maze,
+                    20,
+                    minimap_x,
+                    minimap_y,
+                    block_size,
+                );
+            }
         }
 
         let fps = calculate_fps(current_time);
+
         let text_x = framebuffer.width - 250;
         draw_text(&mut framebuffer, &format!("FPS: {}", fps), text_x, 20);
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer.width, framebuffer.height)
             .expect("Failed to update window");
 
-        if window.is_key_down(Key::Escape) {
+        if window.is_key_down(Key::Escape)
+            || unsafe { GAME_WON && window.is_key_pressed(Key::Enter, KeyRepeat::No) }
+        {
             break;
         }
+
         if window.is_key_down(Key::M) {
             mode = if mode == "2D" { "3D" } else { "2D" };
         }
