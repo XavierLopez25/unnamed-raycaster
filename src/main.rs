@@ -354,7 +354,7 @@ fn main() {
     let framebuffer_width = 1300;
     let framebuffer_height = 900;
 
-    let frame_delay = Duration::from_millis(16);
+    let frame_delay = Duration::from_millis(2);
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
 

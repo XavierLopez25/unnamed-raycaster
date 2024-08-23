@@ -28,10 +28,10 @@ pub fn process_events(
     let mut moved = false;
     let old_pos = player.pos.clone();
 
-    const MOVE_SPEED_KEYBOARD: f32 = 10.0;
+    const MOVE_SPEED_KEYBOARD: f32 = 5.0;
     const ROTATION_SPEED_KEYBOARD: f32 = PI / 25.0;
     const DEAD_ZONE: f32 = 0.5;
-    const MOVE_SPEED_CONTROLLER: f32 = 6.0;
+    const MOVE_SPEED_CONTROLLER: f32 = 3.0;
     const ROTATION_SPEED_CONTROLLER: f32 = PI / 50.0;
     const ROTATION_SPEED_MOUSE: f32 = PI / 75.0;
 
