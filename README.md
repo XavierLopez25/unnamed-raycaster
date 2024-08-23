@@ -38,7 +38,7 @@ You need Rust installed on your machine. The easiest way to install Rust and `ca
 To get a development environment running, clone the repository and build the project:
 
 ```bash
-git clone https://yourrepositorylink.com/unnamed-raycaster.git
+git clone https://github.com/XavierLopez25/unnamed-raycaster.git
 cd unnamed-raycaster
 cargo build
 ```
